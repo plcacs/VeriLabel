@@ -89,6 +89,7 @@ _CAST_TYPE_MODULUS = {
         'FT_Int':   4294967296, 'FT_Long': 4294967296,
 }
 
+
 def _extract_cast_type(cast_ast):
     """Extract the type name string from a pycparser Cast node's to_type."""
     try:
@@ -890,13 +891,91 @@ def build_smt_formula_from_cfg(cond_b, cond_a):
     return z3_code, None
 
 
+def _statement_skeleton(label: str) -> str:
+    """
+    Normalize a statement label by collapsing function call arguments.
+    Maps both:
+      'err = scm_send(sock, msg, siocb->scm)'
+      'err = scm_send(sock, msg, siocb->scm, 1)'
+    to the same skeleton:
+      'err = scm_send(...)'
+
+    This lets compare_cfg_conditions pair nodes that changed only in
+    call-site arguments, rather than treating them as two separate nodes.
+    """
+    m = re.match(r'^((?:[^=]+=\s*)?)([A-Za-z_]\w*)\s*\(', label)
+    if m:
+        prefix = m.group(1)   # e.g. 'err = '
+        fname  = m.group(2)   # e.g. 'scm_send'
+        return f"{prefix}{fname}(...)"
+    return label
+
 def compare_cfg_conditions(before_file,after_file,cfg_before, cfg_after, file_name, count):
     prefix_before=''
     prefix_after=''
     label_to_node_before = {data['label']: n for n, data in cfg_before.nodes(data=True)}
     label_to_node_after = {data['label']: n for n, data in cfg_after.nodes(data=True)}
 
-    all_labels = set(label_to_node_before.keys()) | set(label_to_node_after.keys())
+    # ── Build skeleton indices for fuzzy matching ─────────────────────────
+    # Key: skeleton string → list of (original_label, node_id)
+    skel_before = {}
+    for lbl, n in label_to_node_before.items():
+        skel_before.setdefault(_statement_skeleton(lbl), []).append((lbl, n))
+
+    skel_after = {}
+    for lbl, n in label_to_node_after.items():
+        skel_after.setdefault(_statement_skeleton(lbl), []).append((lbl, n))
+
+    # ── Pre-match: labels that changed only in call-site arguments ────────
+    # These are labels present in ONE side only, but whose skeleton matches
+    # a label on the OTHER side.  We record them as "argument-only changes"
+    # and exclude both their labels from the main loop so they are never
+    # mistakenly treated as conditional differences.
+    arg_only_changes = {}   # before_label -> after_label (or None)
+    skeleton_claimed_before = set()
+    skeleton_claimed_after  = set()
+
+    exact_labels = set(label_to_node_before.keys()) & set(label_to_node_after.keys())
+
+    for skel, before_entries in skel_before.items():
+        after_entries = skel_after.get(skel, [])
+        if not after_entries:
+            continue
+        for (blbl, bn) in before_entries:
+            for (albl, an) in after_entries:
+                # Skip pairs that already match exactly — handled normally
+                if blbl == albl:
+                    continue
+                # Both sides must NOT be exact-matched to something else
+                if blbl in exact_labels or albl in exact_labels:
+                    continue
+                # Avoid double-claiming
+                if blbl in skeleton_claimed_before or albl in skeleton_claimed_after:
+                    continue
+                # Confirm the difference really is inside a function call
+                # (i.e. should_skip detects a call-signature change)
+                ast_b = cfg_before.nodes[bn].get('ast_node')
+                ast_a = cfg_after.nodes[an].get('ast_node')
+                changed, reason, _ = functions_changed_between(ast_b, ast_a)
+                if changed:
+                    arg_only_changes[blbl] = albl
+                    skeleton_claimed_before.add(blbl)
+                    skeleton_claimed_after.add(albl)
+
+    # ── Log all argument-only changes to the right bucket ─────────────────
+    with open('non_conditionalfix.log', 'a') as NonConditionalFixing, \
+         open('NotFixing.log', 'a') as NotFixing:
+        for blbl, albl in arg_only_changes.items():
+            NotFixing.write(f"'{count}'--------'{file_name}'--------\n")
+            NotFixing.write(f"Call-argument-only change (node relabeled):\n")
+            NotFixing.write(f"  Before node: {blbl}\n")
+            NotFixing.write(f"  After  node: {albl}\n\n")
+
+    # ── Main comparison loop — now exclude skeleton-claimed labels ─────────
+    all_labels = (
+        set(label_to_node_before.keys()) | set(label_to_node_after.keys())
+    ) - skeleton_claimed_before - skeleton_claimed_after
+
     diffs = []
     temp = 0
 
