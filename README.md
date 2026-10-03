@@ -1,17 +1,62 @@
 # VeriLabel Artifact
 
-This artifact contains the data and scripts for vulnerability fix classification using VeriLabel.
+This artifact contains the data, scripts, human-level annotations, and experimental results for vulnerability fix classification using VeriLabel.
 
 ---
 
 ## 📁 CSV Files
 
 ### 1. `300data_humanlevel.csv`
-Human-level analysis of 300 samples serving as the ground truth for evaluation.
+
+This file contains the human-level analysis of **300 function-level code changes** associated with vulnerability-fixing commits. The manually annotated dataset serves as the ground truth for evaluating VeriLabel's ability to identify genuine local vulnerability fixes and characterize the semantic contribution of guard strengthening.
+
+Each sample was analyzed to determine whether the function-level change genuinely contributes to vulnerability mitigation, identify the mitigation strategy, and establish whether guard strengthening occurs.
+
+**Annotation fields:**
+
+| Column | Description |
+|---|---|
+| `index` | Unique sample index |
+| `CVE ID` | CVE identifier associated with the vulnerability |
+| `CWE ID` | CWE classification of the vulnerability |
+| `project` | Project associated with the sample |
+| `actual_class` | Human-annotated classification (`Fixing` / `Not_Fixing`) |
+| `mitigation_strategy` | Human analysis describing the vulnerability mitigation mechanism or the nature of the change |
+| `is_guard_strengthened` | Human annotation indicating whether guard strengthening occurs (`True` / `False`) |
+| `codeLink` | Source-code reference for examining the change |
+| `commit_id` | Commit identifier associated with the change |
+
+**Human annotation results:**
+
+| Actual class | Guard strengthened (`True`) | Not strengthened (`False`) | Total |
+|---|---:|---:|---:|
+| Fixing | 135 | 61 | 196 |
+| Not_Fixing | 1 | 103 | 104 |
+| **Total** | **136** | **164** | **300** |
+
+**Key observations:**
+
+- **196 of 300 samples (65.33%)** were identified as genuine local vulnerability fixes.
+- **135 of 196 genuine fixes (68.88%)** exhibit guard strengthening.
+- **61 of 196 genuine fixes (31.12%)** do not exhibit guard strengthening, indicating that genuine vulnerability fixes can involve other semantic mitigation mechanisms.
+- **135 of 136 guard-strengthened samples (99.26%)** were classified as genuine fixes.
+- Only **1 of 104 non-fixing samples (0.96%)** exhibits guard strengthening.
+
+These findings demonstrate a strong association between guard strengthening and genuine local vulnerability fixes within the annotated sample. However, guard strengthening is not necessary for every vulnerability fix, as some vulnerabilities are mitigated through other semantic changes.
+
+**Purpose in VeriLabel evaluation:**
+
+The annotations support two complementary analyses:
+
+1. **Ground-truth evaluation:** The `actual_class` field provides manually established reference labels against which VeriLabel's `Fixing` and `Not_Fixing` predictions can be compared.
+2. **Semantic characterization:** The `mitigation_strategy` and `is_guard_strengthened` fields help characterize the relationship between guard strengthening and vulnerability mitigation, including genuine fixes that fall outside VeriLabel's guard-strengthening criterion.
+
+The human annotation results characterize the dataset independently of VeriLabel's predictions.
 
 ---
 
 ### 2. `BigVul_result.csv`
+
 VeriLabel fix-or-not predictions for **6,438 entries** from the BigVul dataset.
 
 | Column | Description |
@@ -25,6 +70,7 @@ VeriLabel fix-or-not predictions for **6,438 entries** from the BigVul dataset.
 ---
 
 ### 3. `PrimeVul_result.csv`
+
 VeriLabel fix-or-not predictions for **4,446 entries** from the PrimeVul dataset.
 
 | Column | Description |
@@ -42,58 +88,75 @@ VeriLabel fix-or-not predictions for **4,446 entries** from the PrimeVul dataset
 
 For convenience, two ready-to-use folders are provided:
 
-- **`test_on_BigVul/`** — contains input pairs for all 10 BigVul projects
-- **`test_on_PrimeVul/`** — contains input pairs for PrimeVul (test, train, and validation splits)
+- **`test_on_BigVul/`** — contains input pairs for all 10 BigVul projects.
+- **`test_on_PrimeVul/`** — contains input pairs for PrimeVul (test, train, and validation splits).
 
 **Steps:**
 
 1. Clone the repository:
-```bash
-   git clone <repository-url>
-```
-2. Navigate to any project folder inside `test_on_BigVul/` or to a subfolder inside `test_on_PrimeVul/`.
-3. Run the script:
-```bash
-   python Verilabel_beta3_test.py
-```
-4. A `Vulresult.csv` file will be generated in that directory.
 
-> Tables (through 1-5) reported in the paper can be reproduced from the generated `Vulresult.csv` files.
+   ```bash
+   git clone <repository-url>
+   ```
+
+2. Navigate to any project folder inside `test_on_BigVul/` or to a subfolder inside `test_on_PrimeVul/`.
+
+3. Run the analysis script:
+
+   ```bash
+   python Verilabel_beta3_test.py
+   ```
+
+4. A `Vulresult.csv` file will be generated in the corresponding directory.
+
+> Tables 1–5 reported in the paper can be reproduced using the generated `Vulresult.csv` files.
 
 ---
+
 ### Option B: From Scratch
 
 1. From `BigVul_result.csv` or `PrimeVul_result.csv`, extract the `before_func` column and save each entry as a separate file in a folder named `before/`, using the corresponding `id` as the filename.
-2. Do the same for the `after_func` column, saving files into a folder named `after/`.
+
+2. Similarly, extract the `after_func` column and save each entry as a separate file in a folder named `after/`, using the corresponding `id` as the filename.
+
 3. Run the analysis script:
-```bash
+
+   ```bash
    python Verilabel_beta3_test.py
-```
+   ```
+
 4. The script will generate several output files. The final fix classification results can be found in **`Vulresult.csv`**.
 
 ---
 
-### 4. Reproducing Table 6: Baseline Model Evaluation
+## 📊 Reproducing Table 6: Baseline Model Evaluation
 
-Prediction results produced by four baseline models across three datasets and five random seeds. These results are used to reproduce the averaged baseline results reported in **Table 6**.
+### 4. Baseline Model Predictions
+
+The artifact includes prediction results produced by four baseline vulnerability detection models across three datasets and five random seeds. These results are used to reproduce the averaged baseline performance reported in **Table 6**.
 
 | Item | Description |
 |---|---|
 | Evaluated models | LineVul, DeepDFA, CodeBERT, and ReVeal |
 | Evaluation datasets | Setting 1, Setting 2, and the original BigVul dataset |
-| Random seeds | Five independent training runs for each model-dataset combination |
+| Random seeds | Five independent training runs for each model–dataset combination |
 | Reported metrics | F1-score, Recall, and Precision |
-| Output usage | Used to compute the averaged baseline results reported in Table 6 |
+| Results archive | `Four_Models_Predictions.zip` |
+| Output usage | Computing the averaged baseline results reported in Table 6 |
+
+### Baseline Implementations
 
 The baseline implementations and resources were obtained from the following sources:
 
 | Model | Source |
 |---|---|
-| LineVul | https://github.com/awsm-research/LineVul |
-| DeepDFA | https://github.com/ISU-PAAL/DeepDFA |
-| CodeBERT and ReVeal | https://doi.org/10.6084/m9.figshare.20791240 |
+| LineVul | [LineVul GitHub repository](https://github.com/awsm-research/LineVul) |
+| DeepDFA | [DeepDFA GitHub repository](https://github.com/ISU-PAAL/DeepDFA) |
+| CodeBERT and ReVeal | [Figshare resources](https://doi.org/10.6084/m9.figshare.20791240) |
 
-Each model was evaluated on the following three datasets:
+### Evaluation Datasets
+
+Each baseline model was evaluated using the following three datasets:
 
 | Dataset | File / Source |
 |---|---|
@@ -101,17 +164,42 @@ Each model was evaluated on the following three datasets:
 | Setting 2 | `CWE_IDs_Vulnerable_plus_k_times_non_vulnerable_refiltered_by_Bigvul_Fixing_split.tar.gz` |
 | Original BigVul dataset | Original BigVul dataset used by prior baseline studies |
 
+The **original BigVul dataset** can be downloaded from the original authors' Google Drive:
 
+[Download original BigVul dataset](https://drive.google.com/uc?id=10-kjbsA806Zdk54Ax8J3WvLKGTzN8CMX)
 
-The **Original BigVul dataset** can be downloaded from (this is the original Author's drive for BigVul; accessing it will not reveal the current paper's author information):
+This link refers to the original dataset resource and is not intended to reveal the authorship of the current paper.
 
-```text
-https://drive.google.com/uc?id=10-kjbsA806Zdk54Ax8J3WvLKGTzN8CMX
-```
+### Data Preprocessing and Model Training
 
-For **Setting 1** and **Setting 2**, we first applied the required data preprocessing procedures to convert the datasets into the input formats expected by each baseline model. Detailed preprocessing steps are available in the corresponding baseline model repositories listed above. In our evaluation, we followed those preprocessing pipelines and replaced the original input datasets with our Setting 1 and Setting 2 datasets. After preprocessing, each model was retrained on the corresponding processed dataset. For the **original BigVul dataset**, we followed the original baseline settings and used it as the reference dataset for comparison.
+For **Setting 1** and **Setting 2**, we first applied the required preprocessing procedures to convert the datasets into the input formats expected by each baseline model.
 
-For each model-dataset combination, we conducted five independent training runs using different random seeds. The trained models were then used to generate predictions on the corresponding test sets. We summarize the prediction results by computing F1-score, Recall, and Precision for each run, and report the average values across the five seeds. Our preiction result were save on the file "Four_Models_Predictions.zip".
+Detailed preprocessing procedures are available in the corresponding baseline repositories listed above.
 
+In our evaluation, we followed those preprocessing pipelines and replaced the original input datasets with our Setting 1 and Setting 2 datasets. After preprocessing, each model was retrained on the corresponding processed dataset.
 
-   
+For the **original BigVul dataset**, we followed the original baseline settings and used it as the reference dataset for comparison.
+
+### Evaluation Procedure
+
+For each model–dataset combination, we conducted five independent training runs using different random seeds.
+
+The trained models were then used to generate predictions on their corresponding test sets.
+
+For each run, we calculated the following evaluation metrics:
+
+- F1-score
+- Recall
+- Precision
+
+We report the average metric values across the five random seeds for each model–dataset combination.
+
+### Prediction Results
+
+The prediction outputs from the four baseline models are provided in:
+
+**`Four_Models_Predictions.zip`**
+
+These files contain the prediction results used to calculate the averaged F1-score, Recall, and Precision values reported in Table 6.
+
+To reproduce the reported baseline results, extract the archive, compute the evaluation metrics for each model–dataset–seed combination, and average the corresponding metric values across the five random seeds.
