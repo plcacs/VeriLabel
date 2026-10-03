@@ -54,8 +54,49 @@ The annotations support two complementary analyses:
 The human annotation results characterize the dataset independently of VeriLabel's predictions.
 
 ---
+### 2. `comparison_VeriLabel.csv`
 
-### 2. `BigVul_result.csv`
+This file contains a record-level comparison between **VeriLabel's predictions and the human-annotated ground truth for 300 function-level code changes**. It is used to evaluate VeriLabel's ability to distinguish genuine local vulnerability fixes from non-fixing changes.
+
+Each record includes the manually assigned vulnerability-fixing classification, VeriLabel's predicted classification, prediction correctness, and the human annotation indicating whether guard strengthening occurs.
+
+**Comparison fields:**
+
+| Column | Description |
+|---|---|
+| `index` | Sample index corresponding to the human-annotated dataset |
+| `actual_class` | Human-annotated ground-truth classification (`Fixing` / `Not_Fixing`) |
+| `prediction` | VeriLabel's predicted classification (`Fixing` / `Not_Fixing`) |
+| `is_correct` | Indicates whether VeriLabel's prediction matches the human-annotated classification (`True` / `False`) |
+| `is_guard_strengthened` | Human annotation indicating whether guard strengthening occurs (`True` / `False`) |
+
+**Evaluation results:**
+
+We evaluate VeriLabel against the manually annotated `actual_class` labels, treating `Fixing` as the positive class.
+
+The resulting confusion matrix is:
+
+| Actual class | Predicted `Fixing` | Predicted `Not_Fixing` | Total |
+|---|---:|---:|---:|
+| Fixing | 146 (TP) | 50 (FN) | 196 |
+| Not_Fixing | 11 (FP) | 93 (TN) | 104 |
+| **Total** | **157** | **143** | **300** |
+
+The corresponding classification performance is:
+
+| Metric | Result |
+|---|---:|
+| Precision | 92.99% |
+| Recall | 74.49% |
+| F1-score | 82.72% |
+| Accuracy | 79.67% |
+
+These results are calculated by comparing the `prediction` column against the manually established `actual_class` labels.
+
+The `is_guard_strengthened` column provides an additional annotation dimension for examining the relationship between guard strengthening and vulnerability mitigation. It is not used as the ground-truth classification when computing the reported evaluation metrics.
+---
+
+### 3. `BigVul_result.csv`
 
 VeriLabel fix-or-not predictions for **6,438 entries** from the BigVul dataset.
 
@@ -69,7 +110,7 @@ VeriLabel fix-or-not predictions for **6,438 entries** from the BigVul dataset.
 
 ---
 
-### 3. `PrimeVul_result.csv`
+### 4. `PrimeVul_result.csv`
 
 VeriLabel fix-or-not predictions for **4,446 entries** from the PrimeVul dataset.
 
@@ -131,7 +172,7 @@ For convenience, two ready-to-use folders are provided:
 
 ## 📊 Reproducing Table 6: Baseline Model Evaluation
 
-### 4. Baseline Model Predictions
+### 5. Baseline Model Predictions
 
 The artifact includes prediction results produced by four baseline vulnerability detection models across three datasets and five random seeds. These results are used to reproduce the averaged baseline performance reported in **Table 6**.
 
