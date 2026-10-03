@@ -92,7 +92,6 @@ The corresponding classification performance is:
 | Accuracy | 79.67% |
 
 These results are calculated by comparing the `prediction` column against the manually established `actual_class` labels.
-
 The `is_guard_strengthened` column provides an additional annotation dimension for examining the relationship between guard strengthening and vulnerability mitigation. It is not used as the ground-truth classification when computing the reported evaluation metrics.
 ---
 
